@@ -1,20 +1,20 @@
-# My-Tool 워크플로우 완전 가이드
+# vership 워크플로우 완전 가이드
 
 ## 🎯 전체 워크플로우 개요
 
 ```mermaid
 graph TD
-    A[개발자가 기능 개발] --> B[my-tool add]
+    A[개발자가 기능 개발] --> B[vership add]
     B --> C[.changesets/에 변경사항 저장]
     C --> D[더 많은 변경사항...]
     D --> B
-    C --> E[my-tool status]
+    C --> E[vership status]
     E --> F[릴리즈 준비 완료?]
-    F -->|Yes| G[my-tool version]
+    F -->|Yes| G[vership version]
     F -->|No| D
     G --> H[버전 업데이트 & 체인지로그 생성]
     H --> I[변경사항 커밋]
-    I --> J[my-tool publish]
+    I --> J[vership publish]
     J --> K[Git 태그 생성]
     K --> L[NPM 패키지 배포]
     L --> M[GitHub Release 생성]
@@ -23,16 +23,16 @@ graph TD
 
 ## 📋 명령어별 상세 워크플로우
 
-### 1. `my-tool add` - 변경사항 추가
+### 1. `vership add` - 변경사항 추가
 
 #### 사용자 액션:
 
 ```bash
 # 대화형으로 실행
-my-tool add
+vership add
 
 # 또는 옵션과 함께
-my-tool add --type=patch --message="로그인 버튼 버그 수정"
+vership add --type=patch --message="로그인 버튼 버그 수정"
 ```
 
 #### 내부 처리 과정:
@@ -60,16 +60,16 @@ my-tool add --type=patch --message="로그인 버튼 버그 수정"
 
 ---
 
-### 2. `my-tool status` - 현재 상태 확인
+### 2. `vership status` - 현재 상태 확인
 
 #### 사용자 액션:
 
 ```bash
 # 텍스트 출력
-my-tool status
+vership status
 
 # JSON 출력 (CI용)
-my-tool status --output=json
+vership status --output=json
 ```
 
 #### 내부 처리 과정:
@@ -101,16 +101,16 @@ my-tool status --output=json
 
 ---
 
-### 3. `my-tool version` - 버전 업데이트
+### 3. `vership version` - 버전 업데이트
 
 #### 사용자 액션:
 
 ```bash
 # 대화형 실행
-my-tool version
+vership version
 
 # 미리보기만
-my-tool version --dry-run
+vership version --dry-run
 ```
 
 #### 내부 처리 과정:
@@ -168,19 +168,19 @@ my-tool version --dry-run
 
 ---
 
-### 4. `my-tool publish` - 배포 실행
+### 4. `vership publish` - 배포 실행
 
 #### 사용자 액션:
 
 ```bash
 # 대화형 실행
-my-tool publish
+vership publish
 
 # CI 환경에서
-my-tool publish --ci --skip-confirm
+vership publish --ci --skip-confirm
 
 # 시뮬레이션
-my-tool publish --dry-run
+vership publish --dry-run
 ```
 
 #### 내부 처리 과정:
@@ -282,7 +282,7 @@ jobs:
             - name: Check release status
               id: check
               run: |
-                  STATUS=$(npx my-tool status --output=json)
+                  STATUS=$(npx vership status --output=json)
                   NEEDS_RELEASE=$(echo $STATUS | jq -r '.needsPublish')
                   echo "needs_release=$NEEDS_RELEASE" >> $GITHUB_OUTPUT
 
@@ -292,7 +292,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Publish
-              run: npx my-tool publish --ci --skip-confirm
+              run: npx vership publish --ci --skip-confirm
               env:
                   NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -323,7 +323,7 @@ my-project/
 └── ...
 ```
 
-### `my-tool version` 실행 후:
+### `vership version` 실행 후:
 
 ```
 my-project/
@@ -334,7 +334,7 @@ my-project/
 └── ...
 ```
 
-### `my-tool publish` 실행 후:
+### `vership publish` 실행 후:
 
 - Git에 `v1.1.0` 태그 생성
 - NPM에 새 버전 배포
