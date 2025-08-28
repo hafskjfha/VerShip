@@ -1,7 +1,7 @@
 import { ChangesetManager } from '../core/changeset.js';
+import { VersionManager } from '../core/version.js';
+import { GitManager } from '../utils/git.js';
 import { logger } from '../utils/logger.js';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 
 interface StatusOptions {
   output?: 'text' | 'json';
@@ -18,12 +18,20 @@ interface StatusResult {
   }>;
   nextVersion: string;
   needsPublish: boolean;
+  changesByType: {
+    major: number;
+    minor: number;
+    patch: number;
+  };
 }
 
 export async function statusCommand(options: StatusOptions = {}): Promise<void> {
   try {
-    const manager = new ChangesetManager();
-    const result = await getProjectStatus(manager);
+    const changesetManager = new ChangesetManager();
+    const versionManager = new VersionManager();
+    const gitManager = new GitManager();
+    
+    const result = await getProjectStatus(changesetManager, versionManager, gitManager);
 
     if (options.output === 'json') {
       console.log(JSON.stringify(result, null, 2));
@@ -36,18 +44,25 @@ export async function statusCommand(options: StatusOptions = {}): Promise<void> 
   }
 }
 
-async function getProjectStatus(manager: ChangesetManager): Promise<StatusResult> {
+async function getProjectStatus(
+  changesetManager: ChangesetManager, 
+  versionManager: VersionManager,
+  gitManager: GitManager
+): Promise<StatusResult> {
   // 현재 버전 읽기
-  const currentVersion = getCurrentVersion();
+  const currentVersion = await versionManager.getCurrentVersion();
   
   // 미처리 changesets 목록 가져오기
-  const pendingChangesets = await manager.getAllChangesets();
+  const pendingChangesets = await changesetManager.getAllChangesets();
   
   // 다음 버전 계산
-  const nextVersion = calculateNextVersion(currentVersion, pendingChangesets);
+  const versionInfo = versionManager.calculateNextVersion(currentVersion, pendingChangesets);
   
-  // Git 태그는 나중에 구현 (현재는 현재 버전과 동일하다고 가정)
-  const latestTag = `v${currentVersion}`;
+  // Git 태그 확인
+  let latestTag: string | undefined;
+  if (gitManager.isGitRepository()) {
+    latestTag = gitManager.getLatestTag() || undefined;
+  }
   
   return {
     currentVersion,
@@ -58,55 +73,46 @@ async function getProjectStatus(manager: ChangesetManager): Promise<StatusResult
       summary: cs.summary,
       createdAt: cs.createdAt
     })),
-    nextVersion,
-    needsPublish: pendingChangesets.length > 0
+    nextVersion: versionInfo.next,
+    needsPublish: versionInfo.hasChanges,
+    changesByType: versionInfo.changesByType
   };
-}
-
-function getCurrentVersion(): string {
-  try {
-    const packageJsonPath = join(process.cwd(), 'package.json');
-    const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
-    return packageJson.version || '0.0.0';
-  } catch (error) {
-    logger.warn('package.json을 읽을 수 없습니다. 기본 버전 0.0.0을 사용합니다.');
-    return '0.0.0';
-  }
-}
-
-function calculateNextVersion(currentVersion: string, changesets: any[]): string {
-  if (changesets.length === 0) {
-    return currentVersion;
-  }
-
-  const [major, minor, patch] = currentVersion.split('.').map(Number);
-  
-  // 가장 높은 변경 타입 찾기
-  const hasMajor = changesets.some(cs => cs.type === 'major');
-  const hasMinor = changesets.some(cs => cs.type === 'minor');
-  
-  if (hasMajor) {
-    return `${major + 1}.0.0`;
-  } else if (hasMinor) {
-    return `${major}.${minor + 1}.0`;
-  } else {
-    return `${major}.${minor}.${patch + 1}`;
-  }
 }
 
 function displayTextStatus(result: StatusResult): void {
   console.log('📊 프로젝트 상태\n');
   
   console.log(`현재 버전: ${result.currentVersion}`);
-  console.log(`최신 태그: ${result.latestTag}`);
+  if (result.latestTag) {
+    console.log(`최신 태그: ${result.latestTag}`);
+  }
   console.log(`미처리 changesets: ${result.pendingChangesets.length}개\n`);
   
   if (result.pendingChangesets.length > 0) {
     console.log('📝 대기 중인 변경사항:');
-    result.pendingChangesets.forEach(cs => {
+    
+    // 타입별로 정렬하여 표시
+    const sorted = [...result.pendingChangesets].sort((a, b) => {
+      const typeOrder = { major: 0, minor: 1, patch: 2 };
+      return typeOrder[a.type as keyof typeof typeOrder] - typeOrder[b.type as keyof typeof typeOrder];
+    });
+    
+    sorted.forEach(cs => {
       const typeEmoji = getTypeEmoji(cs.type);
       console.log(`  ${typeEmoji} ${cs.type}: ${cs.summary} (${cs.id})`);
     });
+    console.log();
+    
+    // 변경사항 요약
+    if (result.changesByType.major > 0) {
+      console.log(`💥 Breaking Changes: ${result.changesByType.major}개`);
+    }
+    if (result.changesByType.minor > 0) {
+      console.log(`🚀 Features: ${result.changesByType.minor}개`);
+    }
+    if (result.changesByType.patch > 0) {
+      console.log(`🐛 Bug Fixes: ${result.changesByType.patch}개`);
+    }
     console.log();
     
     console.log(`🚀 예상 다음 버전: ${result.nextVersion}`);
