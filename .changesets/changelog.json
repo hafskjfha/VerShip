@@ -1,0 +1,11 @@
+{
+  "template": "github",
+  "includeCommitLinks": false,
+  "includeAuthor": false,
+  "includePR": false,
+  "categories": {
+    "major": "💥 Breaking Changes",
+    "minor": "🚀 Features",
+    "patch": "🐛 Bug Fixes"
+  }
+}
