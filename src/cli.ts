@@ -5,6 +5,7 @@ import { addCommand } from './commands/add.js';
 import { statusCommand } from './commands/status.js';
 import { validateCommand } from './commands/validate.js';
 import { editCommand, deleteCommand } from './commands/edit.js';
+import { versionCommand } from './commands/version.js';
 
 const program = new Command();
 
@@ -45,5 +46,13 @@ program
   .option('-i, --id <id>', 'changeset ID')
   .option('-a, --all', '모든 changeset 삭제')
   .action(deleteCommand);
+
+program
+  .command('version')
+  .description('버전을 업데이트하고 changelog를 생성합니다')
+  .option('--dry-run', '실제 변경 없이 미리보기만 표시')
+  .option('--skip-confirm', '확인 프롬프트 건너뛰기')
+  .option('--ci', 'CI 모드 (자동 확인, 에러 처리 완화)')
+  .action(versionCommand);
 
 program.parse();
