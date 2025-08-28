@@ -1,5 +1,5 @@
 {
-  "template": "github",
+  "template": "custom",
   "includeCommitLinks": false,
   "includeAuthor": false,
   "includePR": false,
@@ -7,5 +7,6 @@
     "major": "💥 Breaking Changes",
     "minor": "🚀 Features",
     "patch": "🐛 Bug Fixes"
-  }
+  },
+  "customTemplatePath": "/workspaces/VerShip/.changesets/changelog-template.hbs"
 }
