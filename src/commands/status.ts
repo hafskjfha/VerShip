@@ -1,5 +1,6 @@
 import { ChangesetManager } from '../core/changeset.js';
 import { VersionManager } from '../core/version.js';
+import { PublishManager } from '../core/publish.js';
 import { GitManager } from '../utils/git.js';
 import { logger } from '../utils/logger.js';
 
@@ -18,11 +19,14 @@ interface StatusResult {
   }>;
   nextVersion: string;
   needsPublish: boolean;
+  needsRelease: boolean; // CI 호환성을 위한 별칭
   changesByType: {
     major: number;
     minor: number;
     patch: number;
   };
+  canPublish: boolean;
+  publishReason?: string;
 }
 
 export async function statusCommand(options: StatusOptions = {}): Promise<void> {
@@ -30,8 +34,9 @@ export async function statusCommand(options: StatusOptions = {}): Promise<void> 
     const changesetManager = new ChangesetManager();
     const versionManager = new VersionManager();
     const gitManager = new GitManager();
+    const publishManager = new PublishManager();
     
-    const result = await getProjectStatus(changesetManager, versionManager, gitManager);
+    const result = await getProjectStatus(changesetManager, versionManager, gitManager, publishManager);
 
     if (options.output === 'json') {
       console.log(JSON.stringify(result, null, 2));
@@ -47,7 +52,8 @@ export async function statusCommand(options: StatusOptions = {}): Promise<void> 
 async function getProjectStatus(
   changesetManager: ChangesetManager, 
   versionManager: VersionManager,
-  gitManager: GitManager
+  gitManager: GitManager,
+  publishManager: PublishManager
 ): Promise<StatusResult> {
   // 현재 버전 읽기
   const currentVersion = await versionManager.getCurrentVersion();
@@ -64,6 +70,9 @@ async function getProjectStatus(
     latestTag = gitManager.getLatestTag() || undefined;
   }
   
+  // 배포 가능 상태 확인
+  const canPublishResult = await publishManager.canPublish();
+  
   return {
     currentVersion,
     latestTag,
@@ -75,7 +84,10 @@ async function getProjectStatus(
     })),
     nextVersion: versionInfo.next,
     needsPublish: versionInfo.hasChanges,
-    changesByType: versionInfo.changesByType
+    needsRelease: versionInfo.hasChanges, // CI 호환성을 위한 별칭
+    changesByType: versionInfo.changesByType,
+    canPublish: canPublishResult.canPublish,
+    publishReason: canPublishResult.reason
   };
 }
 
@@ -117,9 +129,19 @@ function displayTextStatus(result: StatusResult): void {
     
     console.log(`🚀 예상 다음 버전: ${result.nextVersion}`);
     console.log(`${result.needsPublish ? '✅' : '❌'} 릴리즈 필요: ${result.needsPublish ? '예' : '아니오'}`);
+    
+    if (!result.canPublish && result.publishReason) {
+      console.log(`⚠️  배포 상태: ${result.publishReason}`);
+    } else if (result.canPublish && result.needsPublish) {
+      console.log('✅ 배포 준비 완료');
+    }
   } else {
     console.log('📝 대기 중인 변경사항이 없습니다.');
     console.log('❌ 릴리즈 필요: 아니오');
+    
+    if (!result.canPublish && result.publishReason) {
+      console.log(`ℹ️  ${result.publishReason}`);
+    }
   }
 }
 

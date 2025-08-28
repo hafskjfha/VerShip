@@ -124,11 +124,22 @@ export class GitManager {
   }
   
   /**
-   * 태그를 삭제합니다
+   * 태그를 삭제합니다 (로컬과 원격)
    */
-  deleteTag(tag: string): void {
+  deleteTag(tag: string, deleteRemote = true): void {
     try {
+      // 로컬 태그 삭제
       execSync(`git tag -d "${tag}"`, { cwd: this.cwd });
+      
+      // 원격 태그 삭제 (선택적)
+      if (deleteRemote) {
+        try {
+          execSync(`git push origin --delete "${tag}"`, { cwd: this.cwd });
+        } catch {
+          // 원격 태그가 없을 수 있으므로 무시
+        }
+      }
+      
       logger.info(`Git 태그 삭제됨: ${tag}`);
     } catch (error) {
       throw new Error(`태그 삭제 실패: ${error instanceof Error ? error.message : error}`);
@@ -181,6 +192,51 @@ export class GitManager {
       return { name, email };
     } catch {
       return { name: 'Unknown', email: 'unknown@example.com' };
+    }
+  }
+  
+  /**
+   * 원격 저장소 URL을 가져옵니다
+   */
+  getRemoteUrl(remote = 'origin'): string | null {
+    try {
+      const url = execSync(`git remote get-url ${remote}`, {
+        cwd: this.cwd,
+        encoding: 'utf-8'
+      }).trim();
+      return url;
+    } catch {
+      return null;
+    }
+  }
+  
+  /**
+   * 현재 커밋 해시를 가져옵니다
+   */
+  getCurrentCommit(): string {
+    try {
+      return execSync('git rev-parse HEAD', {
+        cwd: this.cwd,
+        encoding: 'utf-8'
+      }).trim();
+    } catch {
+      throw new Error('현재 커밋을 확인할 수 없습니다.');
+    }
+  }
+  
+  /**
+   * 두 커밋 사이의 변경사항을 가져옵니다
+   */
+  getCommitsSince(since: string): string[] {
+    try {
+      const output = execSync(`git log ${since}..HEAD --oneline`, {
+        cwd: this.cwd,
+        encoding: 'utf-8'
+      });
+      
+      return output.trim().split('\n').filter(line => line.length > 0);
+    } catch {
+      return [];
     }
   }
 }

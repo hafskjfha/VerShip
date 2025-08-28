@@ -7,6 +7,7 @@ import { validateCommand } from './commands/validate.js';
 import { editCommand, deleteCommand } from './commands/edit.js';
 import { versionCommand } from './commands/version.js';
 import { changelogCommand } from './commands/changelog.js';
+import { publishCommand } from './commands/publish.js';
 
 const program = new Command();
 
@@ -62,5 +63,7 @@ program
   .option('-t, --template <template>', '사용할 템플릿 (default|github|conventional|custom)')
   .option('--interactive', '대화형 설정 모드', true)
   .action(changelogCommand);
+
+program.addCommand(publishCommand);
 
 program.parse();
