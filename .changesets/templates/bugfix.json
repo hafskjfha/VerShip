@@ -1,0 +1,16 @@
+{
+  "id": "bugfix",
+  "name": "버그 수정",
+  "description": "버그를 수정했을 때 사용",
+  "type": "patch",
+  "summaryTemplate": "버그 수정: {{issue}}",
+  "fields": [
+    {
+      "name": "issue",
+      "label": "수정된 문제",
+      "type": "text",
+      "required": true,
+      "placeholder": "예: 로그인 시 발생하는 오류"
+    }
+  ]
+}

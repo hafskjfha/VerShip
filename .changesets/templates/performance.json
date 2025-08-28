@@ -1,0 +1,16 @@
+{
+  "id": "performance",
+  "name": "성능 개선",
+  "description": "성능을 개선했을 때 사용",
+  "type": "minor",
+  "summaryTemplate": "성능 개선: {{improvement}}",
+  "fields": [
+    {
+      "name": "improvement",
+      "label": "개선사항",
+      "type": "text",
+      "required": true,
+      "placeholder": "예: 로딩 속도 50% 향상"
+    }
+  ]
+}
