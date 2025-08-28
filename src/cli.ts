@@ -6,6 +6,7 @@ import { statusCommand } from './commands/status.js';
 import { validateCommand } from './commands/validate.js';
 import { editCommand, deleteCommand } from './commands/edit.js';
 import { versionCommand } from './commands/version.js';
+import { changelogCommand } from './commands/changelog.js';
 
 const program = new Command();
 
@@ -54,5 +55,12 @@ program
   .option('--skip-confirm', '확인 프롬프트 건너뛰기')
   .option('--ci', 'CI 모드 (자동 확인, 에러 처리 완화)')
   .action(versionCommand);
+
+program
+  .command('changelog')
+  .description('체인지로그 생성 방식을 설정합니다')
+  .option('-t, --template <template>', '사용할 템플릿 (default|github|conventional|custom)')
+  .option('--interactive', '대화형 설정 모드', true)
+  .action(changelogCommand);
 
 program.parse();

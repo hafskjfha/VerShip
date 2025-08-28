@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import Handlebars from 'handlebars';
 import { Changeset } from '../types/index.js';
 
 export interface ChangelogEntry {
@@ -12,13 +13,46 @@ export interface ChangelogEntry {
   };
 }
 
+export interface ChangelogConfig {
+  template: 'default' | 'github' | 'conventional' | 'custom';
+  customTemplatePath?: string;
+  includeCommitLinks?: boolean;
+  includeAuthor?: boolean;
+  includePR?: boolean;
+  repository?: {
+    owner: string;
+    name: string;
+    provider: 'github' | 'gitlab' | 'bitbucket';
+  };
+  categories?: {
+    major?: string;
+    minor?: string;
+    patch?: string;
+  };
+}
+
 export class ChangelogManager {
   private cwd: string;
   private changelogPath: string;
+  private config: ChangelogConfig;
   
-  constructor(cwd = process.cwd()) {
+  constructor(cwd = process.cwd(), config?: Partial<ChangelogConfig>) {
     this.cwd = cwd;
     this.changelogPath = path.join(cwd, 'CHANGELOG.md');
+    this.config = {
+      template: 'default',
+      includeCommitLinks: false,
+      includeAuthor: false,
+      includePR: false,
+      categories: {
+        major: '💥 Breaking Changes',
+        minor: '🚀 Features',
+        patch: '🐛 Bug Fixes'
+      },
+      ...config
+    };
+    
+    this.registerHandlebarsHelpers();
   }
   
   /**
@@ -26,7 +60,7 @@ export class ChangelogManager {
    */
   async addEntry(version: string, changesets: Changeset[]): Promise<void> {
     const entry = this.createChangelogEntry(version, changesets);
-    const newContent = this.generateChangelogSection(entry);
+    const newContent = await this.generateChangelogSection(entry);
     
     try {
       // 기존 changelog 읽기
@@ -45,6 +79,122 @@ export class ChangelogManager {
     } catch (error) {
       throw new Error(`CHANGELOG.md 업데이트 실패: ${error instanceof Error ? error.message : error}`);
     }
+  }
+  
+  /**
+   * 설정을 업데이트합니다
+   */
+  updateConfig(config: Partial<ChangelogConfig>): void {
+    this.config = { ...this.config, ...config };
+  }
+  
+  /**
+   * GitHub/GitLab 저장소 정보를 자동으로 감지합니다
+   */
+  async detectRepository(): Promise<void> {
+    try {
+      const packageJsonPath = path.join(this.cwd, 'package.json');
+      const content = await fs.readFile(packageJsonPath, 'utf-8');
+      const packageJson = JSON.parse(content);
+      
+      if (packageJson.repository) {
+        const repoUrl = typeof packageJson.repository === 'string' 
+          ? packageJson.repository 
+          : packageJson.repository.url;
+          
+        if (repoUrl) {
+          const match = repoUrl.match(/(?:https?:\/\/)?(?:www\.)?([^\/]+)\/([^\/]+)\/([^\/\.]+)/);
+          if (match) {
+            const [, provider, owner, name] = match;
+            
+            let detectedProvider: 'github' | 'gitlab' | 'bitbucket' = 'github';
+            if (provider.includes('gitlab')) detectedProvider = 'gitlab';
+            else if (provider.includes('bitbucket')) detectedProvider = 'bitbucket';
+            
+            this.config.repository = {
+              provider: detectedProvider,
+              owner,
+              name: name.replace(/\.git$/, '')
+            };
+          }
+        }
+      }
+    } catch {
+      // 자동 감지 실패는 무시
+    }
+  }
+  
+  /**
+   * Handlebars 헬퍼를 등록합니다
+   */
+  private registerHandlebarsHelpers(): void {
+    // 날짜 포맷 헬퍼
+    Handlebars.registerHelper('dateFormat', (date: string, format: string) => {
+      const d = new Date(date);
+      switch (format) {
+        case 'yyyy-mm-dd':
+          return d.toISOString().split('T')[0];
+        case 'long':
+          return d.toLocaleDateString('ko-KR', { 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+          });
+        default:
+          return d.toISOString().split('T')[0];
+      }
+    });
+    
+    // URL 생성 헬퍼
+    Handlebars.registerHelper('commitUrl', (commit: string) => {
+      if (!this.config.repository) return commit;
+      const { provider, owner, name } = this.config.repository;
+      
+      switch (provider) {
+        case 'github':
+          return `https://github.com/${owner}/${name}/commit/${commit}`;
+        case 'gitlab':
+          return `https://gitlab.com/${owner}/${name}/-/commit/${commit}`;
+        case 'bitbucket':
+          return `https://bitbucket.org/${owner}/${name}/commits/${commit}`;
+        default:
+          return commit;
+      }
+    });
+    
+    // PR/MR 링크 헬퍼
+    Handlebars.registerHelper('prUrl', (pr: number) => {
+      if (!this.config.repository) return `#${pr}`;
+      const { provider, owner, name } = this.config.repository;
+      
+      switch (provider) {
+        case 'github':
+          return `https://github.com/${owner}/${name}/pull/${pr}`;
+        case 'gitlab':
+          return `https://gitlab.com/${owner}/${name}/-/merge_requests/${pr}`;
+        case 'bitbucket':
+          return `https://bitbucket.org/${owner}/${name}/pull-requests/${pr}`;
+        default:
+          return `#${pr}`;
+      }
+    });
+    
+    // 비교 링크 헬퍼
+    Handlebars.registerHelper('compareUrl', (from: string, to: string) => {
+      if (!this.config.repository) return '';
+      const { provider, owner, name } = this.config.repository;
+      
+      switch (provider) {
+        case 'github':
+          return `https://github.com/${owner}/${name}/compare/${from}...${to}`;
+        case 'gitlab':
+          return `https://gitlab.com/${owner}/${name}/-/compare/${from}...${to}`;
+        case 'bitbucket':
+          return `https://bitbucket.org/${owner}/${name}/branches/compare/${to}..${from}`;
+        default:
+          return '';
+      }
+    });
   }
   
   /**
@@ -67,7 +217,26 @@ export class ChangelogManager {
   /**
    * changelog 섹션을 생성합니다
    */
-  private generateChangelogSection(entry: ChangelogEntry): string {
+  private async generateChangelogSection(entry: ChangelogEntry): Promise<string> {
+    // 저장소 정보 자동 감지
+    await this.detectRepository();
+    
+    switch (this.config.template) {
+      case 'github':
+        return this.generateGitHubTemplate(entry);
+      case 'conventional':
+        return this.generateConventionalTemplate(entry);
+      case 'custom':
+        return await this.generateCustomTemplate(entry);
+      default:
+        return this.generateDefaultTemplate(entry);
+    }
+  }
+  
+  /**
+   * 기본 템플릿을 생성합니다
+   */
+  private generateDefaultTemplate(entry: ChangelogEntry): string {
     const lines: string[] = [];
     
     lines.push(`## v${entry.version} (${entry.date})`);
@@ -75,7 +244,7 @@ export class ChangelogManager {
     
     // Breaking Changes (major)
     if (entry.changes.major.length > 0) {
-      lines.push('### 💥 Breaking Changes');
+      lines.push(`### ${this.config.categories?.major || '💥 Breaking Changes'}`);
       lines.push('');
       entry.changes.major.forEach(changeset => {
         lines.push(`- ${changeset.summary}`);
@@ -85,7 +254,7 @@ export class ChangelogManager {
     
     // Features (minor)
     if (entry.changes.minor.length > 0) {
-      lines.push('### 🚀 Features');
+      lines.push(`### ${this.config.categories?.minor || '🚀 Features'}`);
       lines.push('');
       entry.changes.minor.forEach(changeset => {
         lines.push(`- ${changeset.summary}`);
@@ -95,7 +264,7 @@ export class ChangelogManager {
     
     // Bug Fixes (patch)
     if (entry.changes.patch.length > 0) {
-      lines.push('### 🐛 Bug Fixes');
+      lines.push(`### ${this.config.categories?.patch || '🐛 Bug Fixes'}`);
       lines.push('');
       entry.changes.patch.forEach(changeset => {
         lines.push(`- ${changeset.summary}`);
@@ -104,6 +273,120 @@ export class ChangelogManager {
     }
     
     return lines.join('\n');
+  }
+  
+  /**
+   * GitHub 스타일 템플릿을 생성합니다
+   */
+  private generateGitHubTemplate(entry: ChangelogEntry): string {
+    const templateSource = `
+## [v{{version}}]({{compareUrl}}) ({{dateFormat date 'yyyy-mm-dd'}})
+
+{{#if changes.major}}
+### 💥 Breaking Changes
+
+{{#each changes.major}}
+- {{summary}}{{#if ../config.includeAuthor}}{{#if author}} by @{{author}}{{/if}}{{/if}}{{#if ../config.includePR}}{{#if pr}} ([#{{pr}}]({{prUrl pr}})){{/if}}{{/if}}
+{{/each}}
+
+{{/if}}
+{{#if changes.minor}}
+### 🚀 New Features
+
+{{#each changes.minor}}
+- {{summary}}{{#if ../config.includeAuthor}}{{#if author}} by @{{author}}{{/if}}{{/if}}{{#if ../config.includePR}}{{#if pr}} ([#{{pr}}]({{prUrl pr}})){{/if}}{{/if}}
+{{/each}}
+
+{{/if}}
+{{#if changes.patch}}
+### 🐛 Bug Fixes
+
+{{#each changes.patch}}
+- {{summary}}{{#if ../config.includeAuthor}}{{#if author}} by @{{author}}{{/if}}{{/if}}{{#if ../config.includePR}}{{#if pr}} ([#{{pr}}]({{prUrl pr}})){{/if}}{{/if}}
+{{/each}}
+
+{{/if}}
+`.trim();
+
+    const template = Handlebars.compile(templateSource);
+    return template({
+      version: entry.version,
+      date: entry.date,
+      changes: entry.changes,
+      config: this.config,
+      compareUrl: this.config.repository ? 
+        `https://github.com/${this.config.repository.owner}/${this.config.repository.name}/compare/v${entry.version}` : 
+        ''
+    });
+  }
+  
+  /**
+   * Conventional Commits 스타일 템플릿을 생성합니다
+   */
+  private generateConventionalTemplate(entry: ChangelogEntry): string {
+    const templateSource = `
+## [{{version}}]({{compareUrl}}) ({{dateFormat date 'yyyy-mm-dd'}})
+
+{{#if changes.major}}
+### ⚠ BREAKING CHANGES
+
+{{#each changes.major}}
+* {{summary}}
+{{/each}}
+
+{{/if}}
+{{#if changes.minor}}
+### Features
+
+{{#each changes.minor}}
+* {{summary}}
+{{/each}}
+
+{{/if}}
+{{#if changes.patch}}
+### Bug Fixes
+
+{{#each changes.patch}}
+* {{summary}}
+{{/each}}
+
+{{/if}}
+`.trim();
+
+    const template = Handlebars.compile(templateSource);
+    return template({
+      version: entry.version,
+      date: entry.date,
+      changes: entry.changes,
+      compareUrl: this.config.repository ? 
+        `https://github.com/${this.config.repository.owner}/${this.config.repository.name}/compare/v${entry.version}` : 
+        ''
+    });
+  }
+  
+  /**
+   * 커스텀 템플릿을 생성합니다
+   */
+  private async generateCustomTemplate(entry: ChangelogEntry): Promise<string> {
+    if (!this.config.customTemplatePath) {
+      throw new Error('커스텀 템플릿 경로가 설정되지 않았습니다.');
+    }
+    
+    try {
+      const templatePath = path.resolve(this.cwd, this.config.customTemplatePath);
+      const templateSource = await fs.readFile(templatePath, 'utf-8');
+      const template = Handlebars.compile(templateSource);
+      
+      return template({
+        version: entry.version,
+        date: entry.date,
+        changes: entry.changes,
+        config: this.config,
+        repository: this.config.repository
+      });
+    } catch (error) {
+      throw new Error(`커스텀 템플릿 로드 실패: ${error instanceof Error ? error.message : error}`);
+    }
   }
   
   /**

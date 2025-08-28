@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import { ChangesetManager } from '../core/changeset.js';
 import { VersionManager } from '../core/version.js';
 import { ChangelogManager } from '../core/changelog.js';
+import { ChangelogConfigManager } from '../core/changelog-config.js';
 import { GitManager } from '../utils/git.js';
 import { logger } from '../utils/logger.js';
 
@@ -16,7 +17,7 @@ export async function versionCommand(options: VersionOptions = {}): Promise<void
   try {
     const changesetManager = new ChangesetManager();
     const versionManager = new VersionManager();
-    const changelogManager = new ChangelogManager();
+    const changelogConfigManager = new ChangelogConfigManager();
     const gitManager = new GitManager();
     
     console.log('🔍 버전 업데이트 준비 중...\n');
@@ -69,9 +70,12 @@ export async function versionCommand(options: VersionOptions = {}): Promise<void
     await versionManager.updateVersion(versionInfo.next);
     console.log(`✅ package.json 업데이트 완료: ${chalk.cyan(versionInfo.next)}`);
     
-    // 7. CHANGELOG.md 업데이트
+    // 7. CHANGELOG.md 업데이트 (설정 적용)
+    const changelogConfig = await changelogConfigManager.loadConfig();
+    const changelogManager = new ChangelogManager(process.cwd(), changelogConfig);
+    
     await changelogManager.addEntry(versionInfo.next, changesets);
-    console.log(`✅ CHANGELOG.md 업데이트 완료`);
+    console.log(`✅ CHANGELOG.md 업데이트 완료 (${changelogConfig.template} 템플릿)`);
     
     // 8. changeset 파일들 정리 (소비)
     const consumedChangesets = await changesetManager.consumeChangesets();
@@ -93,6 +97,7 @@ export async function versionCommand(options: VersionOptions = {}): Promise<void
     console.log('\n🎉 버전 업데이트 완료!\n');
     console.log(`🏷️  새 버전: ${chalk.green.bold(versionInfo.next)}`);
     console.log(`📝 변경사항: ${changesets.length}개의 changeset 처리`);
+    console.log(`📋 템플릿: ${chalk.cyan(changelogConfig.template)}`);
     
     if (gitManager.isGitRepository()) {
       console.log(`\n💡 다음 단계:`);

@@ -6,6 +6,25 @@
 
 
 
+
+
+## [v0.3.1](https://github.com/hafskjfha/VerShip/compare/[object Object]...undefined) (2025-08-28)
+
+### 🐛 Bug Fixes
+
+- GitHub 링크 생성 기능 테스트
+
+
+## v0.3.0 (2025-08-28)
+
+### 🚀 Features
+
+- 고급 체인지로그 템플릿 시스템 추가
+
+### 🐛 Bug Fixes
+
+- 버그 수정: sssasas
+
 ## v0.2.0 (2025-08-28)
 
 ### 🚀 Features
