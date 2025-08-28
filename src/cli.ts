@@ -1,43 +1,49 @@
 #!/usr/bin/env node
 
 import { Command } from 'commander';
-import { addCommand } from './commands/add';
-//import { versionCommand } from './commands/version';
-//import { publishCommand } from './commands/publish';
-//import { statusCommand } from './commands/status';
+import { addCommand } from './commands/add.js';
+import { statusCommand } from './commands/status.js';
+import { validateCommand } from './commands/validate.js';
+import { editCommand, deleteCommand } from './commands/edit.js';
 
 const program = new Command();
 
 program
-  .name('VerShip')
-  .description('Custom release management tool')
-  .version('0.1.0');
+  .name('vership')
+  .description('버전 관리 및 릴리즈 도구')
+  .version('1.0.0');
 
 program
   .command('add')
-  .description('Add a new changeset')
-  .option('-t, --type <type>', 'Change type (major|minor|patch)')
-  .option('-m, --message <message>', 'Change description')
+  .description('새로운 changeset을 추가합니다')
+  .option('-t, --type <type>', '변경 타입 (major|minor|patch)')
+  .option('-m, --message <message>', '변경사항 설명')
+  .option('--template <id>', '사용할 템플릿 ID')
   .action(addCommand);
 
-// program
-//   .command('version')
-//   .description('Update version and generate changelog')
-//   .option('--dry-run', 'Show what would happen without making changes')
-//   .action(versionCommand);
+program
+  .command('status')
+  .description('프로젝트의 현재 릴리즈 상태를 확인합니다')
+  .option('-o, --output <format>', '출력 형식 (text|json)', 'text')
+  .action(statusCommand);
 
-// program
-//   .command('publish')
-//   .description('Publish the release')
-//   .option('--ci', 'Run in CI mode')
-//   .option('--dry-run', 'Simulate publish without actually doing it')
-//   .option('--skip-confirm', 'Skip confirmation prompts')
-//   .action(publishCommand);
+program
+  .command('validate')
+  .description('changeset 파일들의 유효성을 검증합니다')
+  .action(validateCommand);
 
-// program
-//   .command('status')
-//   .description('Show current project status')
-//   .option('--output <format>', 'Output format (json|text)', 'text')
-//   .action(statusCommand);
+program
+  .command('edit')
+  .description('기존 changeset을 편집합니다')
+  .option('-i, --id <id>', 'changeset ID')
+  .action(editCommand);
+
+program
+  .command('delete')
+  .aliases(['rm', 'remove'])
+  .description('changeset을 삭제합니다')
+  .option('-i, --id <id>', 'changeset ID')
+  .option('-a, --all', '모든 changeset 삭제')
+  .action(deleteCommand);
 
 program.parse();

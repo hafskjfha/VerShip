@@ -1,0 +1,16 @@
+{
+  "id": "docs",
+  "name": "문서 업데이트",
+  "description": "문서만 변경했을 때 사용",
+  "type": "patch",
+  "summaryTemplate": "문서: {{docs}}",
+  "fields": [
+    {
+      "name": "docs",
+      "label": "문서 변경사항",
+      "type": "text",
+      "required": true,
+      "placeholder": "예: README 업데이트"
+    }
+  ]
+}

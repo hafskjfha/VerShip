@@ -1,0 +1,16 @@
+{
+  "id": "feature",
+  "name": "새로운 기능",
+  "description": "새로운 기능을 추가했을 때 사용",
+  "type": "minor",
+  "summaryTemplate": "새로운 기능: {{feature}}",
+  "fields": [
+    {
+      "name": "feature",
+      "label": "추가된 기능",
+      "type": "text",
+      "required": true,
+      "placeholder": "예: 사용자 로그인 기능"
+    }
+  ]
+}

@@ -11,6 +11,19 @@ export interface Changeset {
   createdAt: string;
 }
 
+export interface PackageInfo {
+  name: string;
+  path: string;
+  version: string;
+  private?: boolean;
+}
+
+export interface MonorepoConfig {
+  packages: string[];   // 패키지 경로 패턴 (예: ["packages/*", "apps/*"])
+  ignore?: string[];    // 무시할 패키지
+  changesetDir?: string; // changeset 디렉토리 (기본: .changesets)
+}
+
 export interface ProjectConfig {
   packages?: string[];
   changelog?: {

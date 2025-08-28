@@ -1,0 +1,22 @@
+{
+  "id": "breaking",
+  "name": "호환성 변경",
+  "description": "호환성을 깨는 변경사항",
+  "type": "major",
+  "summaryTemplate": "BREAKING: {{change}}",
+  "fields": [
+    {
+      "name": "change",
+      "label": "변경사항",
+      "type": "text",
+      "required": true,
+      "placeholder": "예: API 인터페이스 변경"
+    },
+    {
+      "name": "migration",
+      "label": "마이그레이션 방법",
+      "type": "multiline",
+      "placeholder": "기존 코드를 새 버전으로 업그레이드하는 방법을 설명하세요"
+    }
+  ]
+}
